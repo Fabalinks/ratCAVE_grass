@@ -3,6 +3,8 @@
 
 A 3D scene made as a demo for the Sirota Lab's ratCAVE virtual reality setup.
 
+![](grass_scene.JPG)
+
 ## Installation
 
 ```

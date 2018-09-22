@@ -52,13 +52,11 @@ def main():
     meshes = [ground, sky, snake] + fields
     for mesh in meshes:
         mesh.uniforms['diffuse'] = 1., 1., 1.
-        mesh.uniforms['flat_shading'] = True
+        mesh.uniforms['flat_shading'] = False
         mesh.parent = arena
 
     virtual_scene = rc.Scene(meshes=meshes, light=light, camera=rat_camera, bgColor=(0, 0, 255))  # seetign aset virtual scene to be projected as the mesh of the arena
     virtual_scene.gl_states.states = virtual_scene.gl_states.states[:-1]
-
-
 
 
     ## Make Cubemapping work on arena
@@ -89,13 +87,11 @@ def main():
         ## Render virtual scene onto cube texture
         with framebuffer:
             with cube_shader:
-                gl.glColorMask(True, False, False, True)
-                virtual_scene.camera.position.xyz = vr_camgroup.left.position_global
-                virtual_scene.draw360_to_texture(cube_texture)
 
-                gl.glColorMask(False, True, True, True)
-                virtual_scene.camera.position.xyz = vr_camgroup.right.position_global
-                virtual_scene.draw360_to_texture(cube_texture)
+                for mask, camside in zip([(True, False, False, True), (False, True, True, True)], [vr_camgroup.left, vr_camgroup.right]):
+                    gl.glColorMask(*mask)
+                    virtual_scene.camera.position.xyz = camside.position_global
+                    virtual_scene.draw360_to_texture(cube_texture)
 
         ## Render real scene onto screen
         gl.glColorMask(True, True, True, True)
