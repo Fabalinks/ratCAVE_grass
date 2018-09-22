@@ -45,7 +45,7 @@ def main():
 
     ground = load_textured_mesh(arena_reader, 'Ground', 'dirt.png')
     sky = load_textured_mesh(arena_reader, 'Sky', 'sky.png')
-    snake = load_textured_mesh(arena_reader, 'Snake')
+    snake = load_textured_mesh(arena_reader, 'Snake', 'snake.png')
 
     rat_camera = rc.Camera(projection=rc.PerspectiveProjection(aspect=1, fov_y=90, z_near=.001, z_far=10), position=rat_rb.position)  # settign the camera to be on top of the rats head
 
