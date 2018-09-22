@@ -8,7 +8,7 @@ import ratcave as rc
 from ratcave.resources import cube_shader, default_shader
 from natnetclient import NatClient
 import itertools
-from utils import get_screen, load_textured_mesh
+from utils import get_screen, load_textured_mesh, remove_image_lines_from_mtl
 
 
 def main():
@@ -22,6 +22,7 @@ def main():
 
 
     # Load Arena
+    remove_image_lines_from_mtl('assets/3D/grass_scene.mtl')
     arena_filename = 'assets/3D/grass_scene.obj'# we are taking an arena which has been opened in blender and rendered to 3D after scanning it does not have flipped normals
     arena_reader = rc.WavefrontReader(arena_filename)  # loading the mesh of the arena thought a wavefrontreader
     arena = arena_reader.get_mesh("Arena", position=arena_rb.position)  # making the wafrotn into mesh so we can extrude texture ont top of it.
@@ -44,10 +45,11 @@ def main():
 
     ground = load_textured_mesh(arena_reader, 'Ground', 'dirt.png')
     sky = load_textured_mesh(arena_reader, 'Sky', 'sky.png')
+    snake = load_textured_mesh(arena_reader, 'Snake')
 
     rat_camera = rc.Camera(projection=rc.PerspectiveProjection(aspect=1, fov_y=90, z_near=.001, z_far=10), position=rat_rb.position)  # settign the camera to be on top of the rats head
 
-    meshes = [ground, sky] + fields
+    meshes = [ground, sky, snake] + fields
     for mesh in meshes:
         mesh.uniforms['diffuse'] = 1., 1., 1.
         mesh.uniforms['flat_shading'] = True
