@@ -1,0 +1,118 @@
+"""
+This code runs as to set up the script to run the VR in ratcave
+"""
+
+import pyglet
+import pyglet.gl as gl
+import ratcave as rc
+from ratcave.resources import cube_shader, default_shader
+from natnetclient import NatClient
+import itertools
+from utils import get_screen
+
+
+def main():
+    #gettign positions of rigib bodies in real time
+    client = NatClient()
+    arena_rb = client.rigid_bodies['Arena']
+    rat_rb = client.rigid_bodies['Rat']
+
+
+    window = pyglet.window.Window(resizable=True, fullscreen=True, screen=get_screen(1))  # Opening the basic pyglet window
+
+
+    # Load Arena
+    arena_filename = 'assets/3D/grass_scene.obj'# we are taking an arena which has been opened in blender and rendered to 3D after scanning it does not have flipped normals
+    arena_reader = rc.WavefrontReader(arena_filename)  # loading the mesh of the arena thought a wavefrontreader
+    arena = arena_reader.get_mesh("Arena", position=arena_rb.position)  # making the wafrotn into mesh so we can extrude texture ont top of it.
+    arena.uniforms['diffuse'] = 1., 1., 1.  # addign a white diffuse material to the arena
+    arena.rotation = arena.rotation.to_quaternion() # we also need to get arena's rotation not just xyz so it can be tracked and moved if it gets bumped
+
+    # Load the projector as a Ratcave camera, set light to its position
+    projector = rc.Camera.from_pickle('assets/3D/projector.pkl')  # settign the pickle filled of the projector, which gives us the coordinates of where the projector is
+    projector.position.x += .004
+    projector.projection = rc.PerspectiveProjection(fov_y =40.5, aspect=1.777777778)
+    light = rc.Light(position=projector.position)
+
+    ## Make Virtual Scene ##
+    virtual_arena = arena_reader.get_mesh('Arena')
+    virtual_arena.parent = arena
+    virtual_arena.uniforms['flat_shading'] = True
+
+    grass_texture = rc.Texture.from_image('assets/img/grass.png')
+    fields = []
+    for x, z in itertools.product([-.8, 0, .8], [-1.6, 0, 1.6]):
+            field = arena_reader.get_mesh("grass")
+            field.uniforms['diffuse'] = 1., 1., 1.
+            field.parent = arena
+            field.textures.append(grass_texture)
+            field.uniforms['flat_shading'] = True
+            field.position.x += x
+            field.position.z += z
+            fields.append(field)
+
+    ground = arena_reader.get_mesh("Ground")
+    ground.parent = arena
+    ground.textures.append(rc.Texture.from_image('assets/img/dirt.png'))
+    ground.uniforms['flat_shading'] = True
+
+    sky = arena_reader.get_mesh("Sky")
+    sky.parent = arena
+    sky.textures.append(rc.Texture.from_image('assets/img/sky.png'))
+    sky.uniforms['flat_shading'] = True
+
+    rat_camera = rc.Camera(projection=rc.PerspectiveProjection(aspect=1, fov_y=90, z_near=.001, z_far=10), position=rat_rb.position)  # settign the camera to be on top of the rats head
+
+    virtual_scene = rc.Scene(meshes=[ground, sky] + fields, light=light, camera=rat_camera, bgColor=(0, 0, 255))  # seetign aset virtual scene to be projected as the mesh of the arena
+    virtual_scene.gl_states.states = virtual_scene.gl_states.states[:-1]
+
+
+
+
+    ## Make Cubemapping work on arena
+    cube_texture = rc.TextureCube(width=4096, height=4096)  # usign cube mapping to import eh image on the texture of the arena
+    framebuffer = rc.FBO(texture=cube_texture) ## creating a fr`amebuffer as the texture - in tut 4 it was the blue screen
+    arena.textures.append(cube_texture)
+
+    # Stereo
+    vr_camgroup = rc.StereoCameraGroup(distance=.05)
+    vr_camgroup.rotation = vr_camgroup.rotation.to_quaternion()
+
+
+
+    # updating the posiotn of the arena in xyz and also in rotational perspective
+    def update(dt):
+        """main update function: put any movement or tracking steps in here, because it will be run constantly!"""
+        vr_camgroup.position, vr_camgroup.rotation.xyzw = rat_rb.position, rat_rb.quaternion  # setting the actual osiont of the rat camera to vbe of the rat position
+        arena.uniforms['playerPos'] = rat_rb.position
+        arena.position, arena.rotation.xyzw = arena_rb.position, arena_rb.quaternion
+        arena.position.y -= .02
+
+    pyglet.clock.schedule(update)  # making it so that the app updates in real time
+
+
+    @window.event
+    def on_draw():
+
+        ## Render virtual scene onto cube texture
+        with framebuffer:
+            with cube_shader:
+                gl.glColorMask(True, False, False, True)
+                virtual_scene.camera.position.xyz = vr_camgroup.left.position_global
+                virtual_scene.draw360_to_texture(cube_texture)
+
+                gl.glColorMask(False, True, True, True)
+                virtual_scene.camera.position.xyz = vr_camgroup.right.position_global
+                virtual_scene.draw360_to_texture(cube_texture)
+
+        ## Render real scene onto screen
+        gl.glColorMask(True, True, True, True)
+        window.clear()
+        with cube_shader:  # usign cube shader to create the actuall 6 sided virtual cube which gets upated with position and angle of the camera/viewer
+            rc.clear_color(255, 0, 0)
+              # why is it here 39? e
+            with projector, light:
+                arena.draw()
+
+    # actually run everything.
+    pyglet.app.run()
