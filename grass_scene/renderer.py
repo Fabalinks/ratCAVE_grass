@@ -8,7 +8,7 @@ import ratcave as rc
 from ratcave.resources import cube_shader, default_shader
 from natnetclient import NatClient
 import itertools
-from utils import get_screen
+from utils import get_screen, load_textured_mesh
 
 
 def main():
@@ -35,35 +35,25 @@ def main():
     light = rc.Light(position=projector.position)
 
     ## Make Virtual Scene ##
-    virtual_arena = arena_reader.get_mesh('Arena')
-    virtual_arena.parent = arena
-    virtual_arena.uniforms['flat_shading'] = True
-
-    grass_texture = rc.Texture.from_image('assets/img/grass.png')
     fields = []
     for x, z in itertools.product([-.8, 0, .8], [-1.6, 0, 1.6]):
-            field = arena_reader.get_mesh("grass")
-            field.uniforms['diffuse'] = 1., 1., 1.
-            field.parent = arena
-            field.textures.append(grass_texture)
-            field.uniforms['flat_shading'] = True
+            field = load_textured_mesh(arena_reader, 'grass', 'grass.png')
             field.position.x += x
             field.position.z += z
             fields.append(field)
 
-    ground = arena_reader.get_mesh("Ground")
-    ground.parent = arena
-    ground.textures.append(rc.Texture.from_image('assets/img/dirt.png'))
-    ground.uniforms['flat_shading'] = True
-
-    sky = arena_reader.get_mesh("Sky")
-    sky.parent = arena
-    sky.textures.append(rc.Texture.from_image('assets/img/sky.png'))
-    sky.uniforms['flat_shading'] = True
+    ground = load_textured_mesh(arena_reader, 'Ground', 'dirt.png')
+    sky = load_textured_mesh(arena_reader, 'Sky', 'sky.png')
 
     rat_camera = rc.Camera(projection=rc.PerspectiveProjection(aspect=1, fov_y=90, z_near=.001, z_far=10), position=rat_rb.position)  # settign the camera to be on top of the rats head
 
-    virtual_scene = rc.Scene(meshes=[ground, sky] + fields, light=light, camera=rat_camera, bgColor=(0, 0, 255))  # seetign aset virtual scene to be projected as the mesh of the arena
+    meshes = [ground, sky] + fields
+    for mesh in meshes:
+        mesh.uniforms['diffuse'] = 1., 1., 1.
+        mesh.uniforms['flat_shading'] = True
+        mesh.parent = arena
+
+    virtual_scene = rc.Scene(meshes=meshes, light=light, camera=rat_camera, bgColor=(0, 0, 255))  # seetign aset virtual scene to be projected as the mesh of the arena
     virtual_scene.gl_states.states = virtual_scene.gl_states.states[:-1]
 
 
